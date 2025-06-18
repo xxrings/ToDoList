@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>To-Do List with Multiple Lists</title>
+    <style>
+        /* CSS Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        #current-date {
+            text-align: center;
+            font-size: 1.1em;
+            color: #555;
+            margin-top: -10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            margin: 5px;
+        }
+
+        #tab-bar {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            margin-right: 5px;
+            background-color: #f1f1f1;
+        }
+
+        .tab.active {
+            background-color: #fff;
+            font-weight: bold;
+        }
+
+        #categories-container {
+            margin-top: 20px;
+        }
+
+        .category-section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .category-title-container {
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .category-header button {
+            margin-left: 10px;
+        }
+
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .task-content {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .task-content > * {
+            margin-right: 10px;
+        }
+
+        .task-content input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+
+        .action-buttons button {
+            margin-left: 5px;
+        }
+
+        .delete-button,
+        .delete-category-button,
+        .delete-list-button {
+            background-color: transparent;
+            border: none;
+            color: red;
+            cursor: pointer;
+        }
+
+        .in-process-button {
+            background-color: darkgrey;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        .in-process-button.in-process {
+            background-color: green;
+        }
+
+        .due-date {
+            font-style: italic;
+            color: gray;
+        }
+
+        /* Styling for subcategories displayed as columns */
+        .subcategories-container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .subcategories-container .category-section {
+            flex: 1 1 calc(33.333% - 20px);
+            margin-right: 10px;
+            margin-bottom: 20px;
+        }
+
+        @media screen and (max-width: 800px) {
+            .subcategories-container .category-section {
+                flex: 1 1 calc(50% - 20px);
+            }
+        }
+
+        @media screen and (max-width: 500px) {
+            .subcategories-container .category-section {
+                flex: 1 1 100%;
+            }
+        }
+
+        /* Styling for Urgent category */
+        .category-section.urgent {
+            color: black;
+        }
+
+        .category-section.urgent.has-tasks {
+            color: red;
+        }
+
+        .category-section.urgent .task-list {
+            color: inherit;
+        }
+    </style>
+</head>
+<body>
+    <h1>To-Do List with Multiple Lists</h1>
+    <p id="current-date"></p> <!-- Placeholder for the current date -->
+
+    <!-- Tab Bar for Multiple Lists -->
+    <div id="tab-bar"></div>
+    <button id="add-list-button">Add New List</button>
+
+    <!-- Top Control Buttons -->
+    <div id="top-controls">
+        <button id="save-tasks-top">Save To-Do Lists</button>
+        <button id="load-tasks-top">Load To-Do Lists</button>
+        <button id="reset-categories-top">Reset Categories</button>
+        <button id="add-category">Add Category</button>
+    </div>
+
+    <!-- Container for Categories -->
+    <div id="categories-container"></div>
+
+    <!-- Bottom Control Buttons -->
+    <div id="bottom-controls">
+        <button id="save-tasks">Save To-Do Lists</button>
+        <button id="load-tasks">Load To-Do Lists</button>
+        <button id="reset-categories-bottom">Reset Categories</button>
+        <button id="add-category-bottom">Add Category</button>
+    </div>
+
+    <script>
+        /**
+         * Displays the current date below the title in the format:
+         * "Today is Day of the week, Month, Day, Year"
+         */
+        function displayCurrentDate() {
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const formattedDate = `Today is ${today.toLocaleDateString('en-US', options)}`;
+            document.getElementById('current-date').textContent = formattedDate;
+        }
+
+        // Call the function immediately to ensure the date displays
+        displayCurrentDate();
+
+        /**
+         * Represents a single task.
+         */
+        class Task {
+            /**
+             * Creates a new Task.
+             * @param {string} name - The name of the task.
+             * @param {boolean} [inProcessEnabled=false] - Whether the task has an 'In Process' state.
+             * @param {string|null} [dueDate=null] - The due date of the task in 'MM/DD/YYYY' format.
+             */
+            constructor(name, inProcessEnabled = false, dueDate = null) {
+                this.name = name;
+                this.completed = false;
+                this.inProcessEnabled = inProcessEnabled;
+                this.inProcess = false;
+                this.dueDate = dueDate;
+            }
+        }
+
+        /**
+         * Represents a category containing multiple tasks and subcategories.
+         */
+        class Category {
+            /**
+             * Creates a new Category with reset capabilities.
+             * @param {string} name - Name of the category.
+             * @param {boolean} autoDelete - Whether tasks auto-delete upon completion.
+             * @param {string|null} resetDate - Next reset date (in "YYYY-MM-DD" format).
+             * @param {number} resetIntervalDays - Number of days between resets (0 means no interval).
+             * @param {boolean} monthlyReset - Whether the category resets on the 1st of each month.
+             */
+            constructor(name, autoDelete = false, resetDate = null, resetIntervalDays = 0, monthlyReset = false) {
+                this.name = name;
+                this.tasks = [];
+                this.autoDelete = autoDelete;
+                this.resetDate = resetDate; // Next reset date
+                this.resetIntervalDays = resetIntervalDays; // Interval in days
+                this.monthlyReset = monthlyReset; // Whether it resets on the 1st of each month
+                this.lastResetDate = null; // Date of last reset
+                this.subcategories = [];
+            }
+
+            /**
+             * Adds a subcategory to this category.
+             * @param {string} name - The name of the subcategory.
+             * @param {boolean} [autoDelete=false] - Whether tasks in the subcategory auto-delete upon completion.
+             */
+            addSubcategory(name, autoDelete = false) {
+                if (this.subcategories.some(subcategory => subcategory.name === name)) {
+                    alert('Subcategory already exists.');
+                    return;
+                }
+                const newSubcategory = new Category(name, autoDelete);
+                this.subcategories.push(newSubcategory);
+            }
+
+            /**
+             * Removes a subcategory by index.
+             * @param {number} index - The index of the subcategory to remove.
+             */
+            removeSubcategory(index) {
+                this.subcategories.splice(index, 1);
+            }
+
+            /**
+             * Adds a task to this category.
+             * @param {Task} task - The task to add.
+             */
+            addTask(task) {
+                this.tasks.push(task);
+            }
+
+            /**
+             * Removes a task from the category by index.
+             * @param {number} index - The index of the task to remove.
+             */
+            removeTask(index) {
+                this.tasks.splice(index, 1);
+            }
+
+            /**
+             * Resets the tasks in this category and updates the reset date.
+             */
+            resetTasks() {
+                this.tasks.forEach(task => {
+                    task.completed = false;
+                    task.inProcess = false;
+                });
+
+                // Update lastResetDate to today's date
+                this.lastResetDate = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD" format
+
+                if (this.monthlyReset) {
+                    // If monthly reset is chosen, set next reset date to the first of next month
+                    const today = new Date();
+                    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                    this.resetDate = nextMonth.toISOString().split('T')[0];
+                } else if (this.resetIntervalDays && this.resetDate) {
+                    // If the category has a reset interval, calculate the next reset date
+                    const nextReset = new Date();
+                    nextReset.setDate(nextReset.getDate() + this.resetIntervalDays);
+                    this.resetDate = nextReset.toISOString().split('T')[0]; // Update resetDate to the new date
+                }
+                console.info(`Category "${this.name}" tasks have been reset. Next reset date: ${this.resetDate}.`);
+            }
+        }
+
+        /**
+         * Represents a single to-do list, containing categories.
+         */
+        class ToDoList {
+            /**
+             * Creates a new ToDoList.
+             * @param {string} name - The name of the to-do list.
+             */
+            constructor(name) {
+                this.name = name;
+                this.categories = [];
+            }
+
+            /**
+             * Adds a new category to the list.
+             * @param {string} name - The category's name.
+             * @param {boolean} autoDelete - Whether tasks auto-delete when completed.
+             * @param {string} initialResetDate - The first reset date in "YYYY-MM-DD" format.
+             * @param {number} resetIntervalDays - Number of days between resets.
+             * @param {boolean} monthlyReset - Whether the category resets on the 1st of each month.
+             */
+            addCategory(name, autoDelete, initialResetDate, resetIntervalDays, monthlyReset) {
+                const newCategory = new Category(name, autoDelete, initialResetDate, resetIntervalDays, monthlyReset);
+                this.categories.push(newCategory);
+            }
+
+            /**
+             * Removes a category by index.
+             * @param {number} index - The index of the category to remove.
+             */
+            removeCategory(index) {
+                this.categories.splice(index, 1);
+            }
+
+            /**
+             * Resets categories if needed.
+             */
+            resetCategoriesIfNeeded(manualTrigger = false) {
+                const today = new Date();
+                const todayString = today.toISOString().split('T')[0];
+                let anyCategoryReset = false;
+
+                this.categories.forEach(category => {
+                    let shouldReset = false;
+
+                    // Check if monthly reset is enabled
+                    if (category.monthlyReset) {
+                        if (today.getDate() === 1 && category.lastResetDate !== todayString) {
+                            shouldReset = true;
+                        }
+                    }
+                    // Check if resetDate and resetIntervalDays are defined for interval-based resetting
+                    else if (category.resetDate && category.resetIntervalDays) {
+                        const resetDate = new Date(category.resetDate);
+                        const lastReset = category.lastResetDate ? new Date(category.lastResetDate) : null;
+
+                        // If resetDate is on or before today, and we haven't reset today
+                        if (resetDate <= today && (!lastReset || today > lastReset)) {
+                            shouldReset = true;
+                        }
+                    }
+
+                    if (shouldReset) {
+                        category.resetTasks();
+                        anyCategoryReset = true;
+                        console.info(`Tasks reset for category "${category.name}" as of ${todayString}.`);
+                    } else if (manualTrigger) {
+                        console.info(`No reset needed for category "${category.name}". Next reset date: ${category.resetDate || 'N/A'}.`);
+                    }
+                });
+
+                if (manualTrigger && !anyCategoryReset) {
+                    alert(`No categories needed to be reset in list "${this.name}" at this time.`);
+                } else if (manualTrigger && anyCategoryReset) {
+                    alert(`Categories have been reset in list "${this.name}".`);
+                    renderTasks();
+                }
+            }
+        }
+
+        /**
+         * Manages all to-do lists.
+         */
+        class TaskManager {
+            constructor() {
+                this.lists = []; // Holds multiple to-do lists
+                this.currentListIndex = 0; // Index of the currently active list
+            }
+
+            /**
+             * Adds a new to-do list.
+             * @param {string} name - The name of the new list.
+             */
+            addList(name) {
+                const newList = new ToDoList(name);
+                this.lists.push(newList);
+            }
+
+            /**
+             * Removes a to-do list by index.
+             * @param {number} index - The index of the list to remove.
+             */
+            removeList(index) {
+                this.lists.splice(index, 1);
+                if (this.currentListIndex >= this.lists.length) {
+                    this.currentListIndex = this.lists.length - 1;
+                }
+            }
+
+            /**
+             * Gets the current to-do list.
+             * @returns {ToDoList} - The current to-do list.
+             */
+            getCurrentList() {
+                return this.lists[this.currentListIndex];
+            }
+        }
+
+        // Instantiate the TaskManager
+        let taskManager = new TaskManager();
+        let isDataModified = false; // Tracks unsaved changes
+
+        /**
+         * Attaches event listeners to UI elements.
+         */
+        function attachEventListeners() {
+            // Event listeners for adding categories
+            document.getElementById('add-category').addEventListener('click', () => {
+                addCategory();
+            });
+            document.getElementById('add-category-bottom').addEventListener('click', () => {
+                addCategory();
+            });
+
+            // Event listeners for saving and loading tasks
+            document.getElementById('save-tasks-top').addEventListener('click', saveTasks);
+            document.getElementById('load-tasks-top').addEventListener('click', loadTasks);
+            document.getElementById('save-tasks').addEventListener('click', saveTasks);
+            document.getElementById('load-tasks').addEventListener('click', loadTasks);
+
+            // Event listeners for resetting categories
+            document.getElementById('reset-categories-top').addEventListener('click', () => {
+                resetCategories(true);
+            });
+            document.getElementById('reset-categories-bottom').addEventListener('click', () => {
+                resetCategories(true);
+            });
+
+            // Event listener for adding new lists
+            document.getElementById('add-list-button').addEventListener('click', addNewList);
+        }
+
+        /**
+         * Adds a new to-do list.
+         */
+        function addNewList() {
+            const listName = prompt('Enter the name of the new list:');
+            if (listName) {
+                taskManager.addList(listName);
+                taskManager.currentListIndex = taskManager.lists.length - 1;
+                isDataModified = true;
+                renderTabBar();
+                renderTasks();
+            }
+        }
+
+        /**
+         * Renders the tab bar for switching between lists.
+         */
+        function renderTabBar() {
+            const tabBar = document.getElementById('tab-bar');
+            tabBar.innerHTML = '';
+
+            taskManager.lists.forEach((list, index) => {
+                const tab = document.createElement('div');
+                tab.className = 'tab';
+                if (index === taskManager.currentListIndex) {
+                    tab.classList.add('active');
+                }
+                tab.textContent = list.name;
+                tab.onclick = () => {
+                    taskManager.currentListIndex = index;
+                    renderTabBar();
+                    renderTasks();
+                };
+
+                // Delete list button (except if only one list remains)
+                if (taskManager.lists.length > 1) {
+                    const deleteListBtn = document.createElement('button');
+                    deleteListBtn.textContent = 'X';
+                    deleteListBtn.className = 'delete-list-button';
+                    deleteListBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Are you sure you want to delete the list "${list.name}"?`)) {
+                            taskManager.removeList(index);
+                            isDataModified = true;
+                            renderTabBar();
+                            renderTasks();
+                        }
+                    };
+                    tab.appendChild(deleteListBtn);
+                }
+
+                tabBar.appendChild(tab);
+            });
+        }
+
+        /**
+         * Adds a new category.
+         */
+        function addCategory() {
+            const categoryName = prompt('Enter the new category name:');
+            if (!categoryName) return;
+
+            const autoDelete = confirm('Should tasks in this category auto-delete when completed? Click OK for Yes, Cancel for No.');
+
+            const monthlyResetChoice = confirm('Would you like this category to reset on the 1st of every month? Click OK for Yes, Cancel for No.');
+            let monthlyReset = false;
+            let initialResetDate = null;
+            let resetIntervalDays = 0;
+
+            if (monthlyResetChoice) {
+                monthlyReset = true;
+                alert('This category will reset on the 1st of every month.');
+            } else {
+                initialResetDate = prompt('Enter the first reset date in MM/DD/YYYY format (or leave blank for no reset):');
+                if (initialResetDate && !parseDate(initialResetDate)) {
+                    alert('Invalid date format. Please use MM/DD/YYYY.');
+                    return;
+                }
+
+                if (initialResetDate) {
+                    resetIntervalDays = parseInt(prompt('Enter the number of days between resets:'), 10);
+                    if (isNaN(resetIntervalDays) || resetIntervalDays < 0) {
+                        alert('Invalid reset interval. Use a positive number or 0 if no interval.');
+                        return;
+                    }
+                    // Convert initialResetDate to 'YYYY-MM-DD' format for internal storage
+                    initialResetDate = formatDateISO(parseDate(initialResetDate));
+                }
+            }
+
+            // Add the new category to the current list
+            const currentList = taskManager.getCurrentList();
+            currentList.addCategory(categoryName, autoDelete, initialResetDate || null, resetIntervalDays, monthlyReset);
+            isDataModified = true;
+            renderTasks();
+        }
+
+        /**
+         * Adds a subcategory to a parent category.
+         * @param {Category} parentCategory - The parent category.
+         */
+        function addSubcategory(parentCategory) {
+            let subcategoryName = prompt(`Enter the name of the subcategory under "${parentCategory.name}":`);
+            if (subcategoryName) {
+                if (parentCategory.subcategories.some(subcategory => subcategory.name === subcategoryName)) {
+                    alert('Subcategory already exists.');
+                    return;
+                }
+                let autoDelete = confirm('Should tasks in this subcategory auto-delete when completed? Click OK for Yes, Cancel for No.');
+                parentCategory.addSubcategory(subcategoryName, autoDelete);
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Renders all categories and their tasks.
+         */
+        function renderTasks() {
+            const categoriesContainer = document.getElementById('categories-container');
+            categoriesContainer.innerHTML = ''; // Clear existing content
+
+            const currentList = taskManager.getCurrentList();
+            if (!currentList) return;
+
+            currentList.categories.forEach((category, index) => {
+                // Create category element
+                const categoryElement = document.createElement('div');
+                categoryElement.className = 'category-section';
+
+                // Apply urgent class and has-tasks class if needed
+                if (category.name === 'Urgent') {
+                    categoryElement.classList.add('urgent');
+                    if (category.tasks.length > 0) {
+                        categoryElement.classList.add('has-tasks');
+                    } else {
+                        categoryElement.classList.remove('has-tasks');
+                    }
+                }
+
+                // Render category and its tasks/subcategories
+                renderCategory(category, categoryElement, null, index);
+
+                categoriesContainer.appendChild(categoryElement);
+            });
+        }
+
+        /**
+         * Renders a single category and its tasks.
+         * @param {Category} category - The category to render.
+         * @param {HTMLElement} parentElement - The parent HTML element to append the category to.
+         * @param {Category|null} parentCategory - The parent category (if any).
+         * @param {number|null} index - The index of the category in its parent array.
+         */
+        function renderCategory(category, parentElement, parentCategory = null, index = null) {
+            // Category header
+            let categoryHeader = document.createElement('div');
+            categoryHeader.className = 'category-header';
+
+            // Category title container (centered)
+            let categoryTitleContainer = document.createElement('div');
+            categoryTitleContainer.className = 'category-title-container';
+
+            let categoryTitle = document.createElement('h2');
+            categoryTitle.textContent = category.name;
+            categoryTitleContainer.appendChild(categoryTitle);
+
+            // Display reset information if applicable
+            if (category.monthlyReset) {
+                const resetInfo = document.createElement('p');
+                resetInfo.textContent = 'Resets on the 1st of every month';
+                resetInfo.style.fontStyle = 'italic';
+                resetInfo.style.color = 'gray';
+                categoryTitleContainer.appendChild(resetInfo);
+            } else if (category.resetDate && category.resetIntervalDays) {
+                const resetInfo = document.createElement('p');
+                // Format resetDate to 'MM/DD/YYYY' for display
+                const formattedResetDate = formatDateDisplay(category.resetDate);
+                resetInfo.textContent = `Next reset: ${formattedResetDate} (Every ${category.resetIntervalDays} days)`;
+                resetInfo.style.fontStyle = 'italic';
+                resetInfo.style.color = 'gray';
+                categoryTitleContainer.appendChild(resetInfo);
+            }
+
+            // Append the title container to the header
+            categoryHeader.appendChild(categoryTitleContainer);
+
+            // Up/Down buttons for categories or subcategories
+            if (parentCategory === null && category.name !== 'Urgent') {
+                // For top-level categories
+                // Move Up button
+                if (index > 0) {
+                    let moveUpBtn = document.createElement('button');
+                    moveUpBtn.textContent = '↑';
+                    moveUpBtn.onclick = function() {
+                        moveCategoryUp(index);
+                    };
+                    categoryHeader.appendChild(moveUpBtn);
+                }
+
+                // Move Down button
+                if (index < taskManager.getCurrentList().categories.length - 1) {
+                    let moveDownBtn = document.createElement('button');
+                    moveDownBtn.textContent = '↓';
+                    moveDownBtn.onclick = function() {
+                        moveCategoryDown(index);
+                    };
+                    categoryHeader.appendChild(moveDownBtn);
+                }
+            } else if (parentCategory !== null) {
+                // For subcategories
+                const subcategoriesArray = parentCategory.subcategories;
+
+                // Move Up button
+                if (index > 0) {
+                    let moveUpBtn = document.createElement('button');
+                    moveUpBtn.textContent = '↑';
+                    moveUpBtn.onclick = function() {
+                        moveSubcategoryUp(parentCategory, index);
+                    };
+                    categoryHeader.appendChild(moveUpBtn);
+                }
+
+                // Move Down button
+                if (index < subcategoriesArray.length - 1) {
+                    let moveDownBtn = document.createElement('button');
+                    moveDownBtn.textContent = '↓';
+                    moveDownBtn.onclick = function() {
+                        moveSubcategoryDown(parentCategory, index);
+                    };
+                    categoryHeader.appendChild(moveDownBtn);
+                }
+            }
+
+            // Add subcategory button (aligned to the right)
+            if (parentCategory === null) { // Do not allow nested subcategories
+                let addSubcategoryBtn = document.createElement('button');
+                addSubcategoryBtn.textContent = 'Add Subcategory';
+                addSubcategoryBtn.onclick = function() {
+                    addSubcategory(category);
+                };
+                categoryHeader.appendChild(addSubcategoryBtn);
+            }
+
+            // Delete category button (not available for 'Urgent' category)
+            if (category.name !== 'Urgent') {
+                let deleteCategoryBtn = document.createElement('button');
+                deleteCategoryBtn.textContent = 'Delete Category';
+                deleteCategoryBtn.className = 'delete-category-button';
+                deleteCategoryBtn.onclick = function() {
+                    if (confirm(`Are you sure you want to delete the category "${category.name}"?`)) {
+                        if (parentCategory) {
+                            // Remove subcategory by index
+                            parentCategory.removeSubcategory(index);
+                        } else {
+                            // Remove top-level category
+                            taskManager.getCurrentList().removeCategory(index);
+                        }
+                        isDataModified = true;
+                        renderTasks();
+                    }
+                };
+                categoryHeader.appendChild(deleteCategoryBtn);
+            }
+
+            // Append the header to the category section
+            parentElement.appendChild(categoryHeader);
+
+            // Task list
+            let taskList = document.createElement('ul');
+            taskList.className = 'task-list';
+
+            category.tasks.forEach((task, tIndex) => {
+                let taskItem = document.createElement('li');
+                taskItem.className = 'task-item';
+
+                // Task content (checkbox, label, and in-process button)
+                let taskContent = document.createElement('div');
+                taskContent.className = 'task-content';
+
+                // Checkbox for task completion
+                let checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.completed;
+                checkbox.onchange = function() {
+                    task.completed = checkbox.checked;
+                    isDataModified = true;
+                    handleTaskCompletion(category, tIndex);
+                    renderTasks();
+                };
+
+                // Task name label
+                let label = document.createElement('span');
+                label.textContent = task.name;
+
+                // Append checkbox and label to task content
+                taskContent.appendChild(checkbox);
+                taskContent.appendChild(label);
+
+                // Due date label (if available)
+                if (task.dueDate) {
+                    let dueDateLabel = document.createElement('span');
+                    dueDateLabel.className = 'due-date';
+                    dueDateLabel.textContent = `(Due: ${task.dueDate})`;
+                    taskContent.appendChild(dueDateLabel);
+                }
+
+                // In-process button
+                if (task.inProcessEnabled) {
+                    let inProcessButton = document.createElement('button');
+                    inProcessButton.textContent = task.inProcess ? 'In Process' : 'Not In Process';
+                    inProcessButton.className = 'in-process-button';
+                    if (task.inProcess) {
+                        inProcessButton.classList.add('in-process');
+                    }
+                    inProcessButton.onclick = function() {
+                        task.inProcess = !task.inProcess;
+                        isDataModified = true;
+                        renderTasks();
+                    };
+                    // Append the in-process button to task content
+                    taskContent.appendChild(inProcessButton);
+                }
+
+                // Append task content to task item
+                taskItem.appendChild(taskContent);
+
+                // Action buttons container
+                let actionButtons = document.createElement('div');
+                actionButtons.className = 'action-buttons';
+
+                // Move Up button for tasks
+                if (tIndex > 0) {
+                    let moveUpBtn = document.createElement('button');
+                    moveUpBtn.textContent = '↑';
+                    moveUpBtn.onclick = function() {
+                        moveTaskUp(category, tIndex);
+                    };
+                    actionButtons.appendChild(moveUpBtn);
+                }
+
+                // Move Down button for tasks
+                if (tIndex < category.tasks.length - 1) {
+                    let moveDownBtn = document.createElement('button');
+                    moveDownBtn.textContent = '↓';
+                    moveDownBtn.onclick = function() {
+                        moveTaskDown(category, tIndex);
+                    };
+                    actionButtons.appendChild(moveDownBtn);
+                }
+
+                // Delete task button (only if category is not auto-deleting)
+                if (!category.autoDelete) {
+                    let deleteTaskBtn = document.createElement('button');
+                    deleteTaskBtn.textContent = 'Delete';
+                    deleteTaskBtn.className = 'delete-button';
+                    deleteTaskBtn.onclick = function() {
+                        category.removeTask(tIndex);
+                        isDataModified = true;
+                        renderTasks();
+                    };
+                    actionButtons.appendChild(deleteTaskBtn);
+                }
+
+                // Append action buttons to task item
+                taskItem.appendChild(actionButtons);
+
+                // Append task item to task list
+                taskList.appendChild(taskItem);
+            });
+
+            // Add task button
+            let addTaskBtn = document.createElement('button');
+            addTaskBtn.textContent = 'Add Task';
+            addTaskBtn.onclick = function() {
+                addTaskToCategory(category);
+            };
+
+            // Append task list and add task button to category section
+            parentElement.appendChild(taskList);
+            parentElement.appendChild(addTaskBtn);
+
+            // Create a container for subcategories
+            let subcategoriesContainer = document.createElement('div');
+            subcategoriesContainer.className = 'subcategories-container';
+
+            // Render subcategories
+            category.subcategories.forEach((subcategory, subIndex) => {
+                let subcategoryElement = document.createElement('div');
+                subcategoryElement.className = 'category-section';
+                renderCategory(subcategory, subcategoryElement, category, subIndex);
+                subcategoriesContainer.appendChild(subcategoryElement);
+            });
+
+            // Append the subcategories container to the category section
+            parentElement.appendChild(subcategoriesContainer);
+        }
+
+        /**
+         * Adds a task to a specified category.
+         * @param {Category} category - The category to add the task to.
+         */
+        function addTaskToCategory(category) {
+            let taskName = prompt('Enter the task name:');
+            if (taskName) {
+                let inProcessEnabled = confirm('Should this task have an "In Process" option? Click OK for Yes, Cancel for No.');
+                let dueDate = prompt('Enter a due date (MM/DD/YYYY) or leave blank:');
+                if (dueDate && !parseDate(dueDate)) {
+                    alert('Invalid date format. Please enter in MM/DD/YYYY format.');
+                    return;
+                }
+                let task = new Task(taskName, inProcessEnabled, dueDate || null);
+                category.addTask(task);
+                isDataModified = true;
+                renderTasks();
+                checkAndMoveToUrgent(task, category);
+            }
+        }
+
+        /**
+         * Parses a date string in 'MM/DD/YYYY' format.
+         * @param {string} input - The date string to parse.
+         * @returns {Date|null} - Returns the Date object or null if invalid.
+         */
+        function parseDate(input) {
+            let parts = input.split('/');
+            if (parts.length === 3) {
+                let month = parseInt(parts[0], 10);
+                let day = parseInt(parts[1], 10);
+                let year = parseInt(parts[2], 10);
+                let date = new Date(year, month - 1, day);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Formats a Date object into 'MM/DD/YYYY' string.
+         * @param {Date} date - The Date object.
+         * @returns {string} - The formatted date string.
+         */
+        function formatDateDisplay(date) {
+            if (typeof date === 'string') {
+                date = new Date(date);
+            }
+            let month = String(date.getMonth() + 1).padStart(2, '0');
+            let day = String(date.getDate()).padStart(2, '0');
+            let year = date.getFullYear();
+            return `${month}/${day}/${year}`;
+        }
+
+        /**
+         * Formats a Date object into 'YYYY-MM-DD' string.
+         * @param {Date} date - The Date object.
+         * @returns {string} - The formatted date string.
+         */
+        function formatDateISO(date) {
+            let year = date.getFullYear();
+            let month = String(date.getMonth() + 1).padStart(2, '0');
+            let day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Checks if a task should be moved to the 'Urgent' category based on due date.
+         * @param {Task} task - The task to check.
+         * @param {Category} currentCategory - The current category of the task.
+         */
+        function checkAndMoveToUrgent(task, currentCategory) {
+            if (task.dueDate) {
+                let dueDate = parseDate(task.dueDate);
+                if (dueDate && !isNaN(dueDate.getTime())) {
+                    let currentDate = new Date();
+                    let timeDiff = dueDate - currentDate;
+                    let daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+                    if (daysDiff < 7 && currentCategory.name !== 'Urgent') {
+                        // Move task to 'Urgent' category
+                        const currentList = taskManager.getCurrentList();
+                        let urgentCategory = currentList.categories.find(category => category.name === 'Urgent');
+                        if (!urgentCategory) {
+                            // If no Urgent category exists, create one
+                            currentList.addCategory('Urgent', false, null, 0);
+                            urgentCategory = currentList.categories.find(category => category.name === 'Urgent');
+                        }
+                        urgentCategory.addTask(task);
+                        currentCategory.tasks = currentCategory.tasks.filter(t => t !== task);
+                        isDataModified = true;
+                        renderTasks();
+                    }
+                }
+            }
+        }
+
+        /**
+         * Checks and moves tasks with due dates to 'Urgent' if they are due within a week.
+         * Called after loading tasks to correctly categorize tasks based on their due dates.
+         */
+        function checkAndMoveDueTasksToUrgent() {
+            const currentList = taskManager.getCurrentList();
+            currentList.categories.forEach(category => {
+                // Copy the tasks array to avoid modifying it while iterating
+                const tasksCopy = [...category.tasks];
+                tasksCopy.forEach(task => {
+                    checkAndMoveToUrgent(task, category);
+                });
+            });
+        }
+
+        /**
+         * Handles task completion logic, including auto-deletion.
+         * @param {Category} category - The category of the task.
+         * @param {number} index - The index of the task in the category's task list.
+         */
+        function handleTaskCompletion(category, index) {
+            let task = category.tasks[index];
+            if (category.autoDelete && task.completed) {
+                category.removeTask(index);
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a category up in the list.
+         * @param {number} index - The index of the category to move.
+         */
+        function moveCategoryUp(index) {
+            if (index > 0) {
+                const categories = taskManager.getCurrentList().categories;
+                [categories[index - 1], categories[index]] = [categories[index], categories[index - 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a category down in the list.
+         * @param {number} index - The index of the category to move.
+         */
+        function moveCategoryDown(index) {
+            const categories = taskManager.getCurrentList().categories;
+            if (index < categories.length - 1) {
+                [categories[index + 1], categories[index]] = [categories[index], categories[index + 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a subcategory up in the list.
+         * @param {Category} parentCategory - The parent category.
+         * @param {number} index - The index of the subcategory to move.
+         */
+        function moveSubcategoryUp(parentCategory, index) {
+            if (index > 0) {
+                let subcategories = parentCategory.subcategories;
+                [subcategories[index - 1], subcategories[index]] = [subcategories[index], subcategories[index - 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a subcategory down in the list.
+         * @param {Category} parentCategory - The parent category.
+         * @param {number} index - The index of the subcategory to move.
+         */
+        function moveSubcategoryDown(parentCategory, index) {
+            let subcategories = parentCategory.subcategories;
+            if (index < subcategories.length - 1) {
+                [subcategories[index + 1], subcategories[index]] = [subcategories[index], subcategories[index + 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a task up in the list within a category.
+         * @param {Category} category - The category containing the tasks.
+         * @param {number} taskIndex - The index of the task to move.
+         */
+        function moveTaskUp(category, taskIndex) {
+            if (taskIndex > 0) {
+                [category.tasks[taskIndex - 1], category.tasks[taskIndex]] = [category.tasks[taskIndex], category.tasks[taskIndex - 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Moves a task down in the list within a category.
+         * @param {Category} category - The category containing the tasks.
+         * @param {number} taskIndex - The index of the task to move.
+         */
+        function moveTaskDown(category, taskIndex) {
+            if (taskIndex < category.tasks.length - 1) {
+                [category.tasks[taskIndex + 1], category.tasks[taskIndex]] = [category.tasks[taskIndex], category.tasks[taskIndex + 1]];
+                isDataModified = true;
+                renderTasks();
+            }
+        }
+
+        /**
+         * Resets categories in the current list if needed.
+         * @param {boolean} manualTrigger - Whether the reset was manually triggered.
+         */
+        function resetCategories(manualTrigger = false) {
+            const currentList = taskManager.getCurrentList();
+            currentList.resetCategoriesIfNeeded(manualTrigger);
+        }
+
+        /**
+         * Saves tasks to a JSON file using the File System Access API.
+         */
+        async function saveTasks() {
+            if (window.showSaveFilePicker) {
+                const options = {
+                    suggestedName: 'todo-lists.json',
+                    types: [{
+                        description: 'JSON Files',
+                        accept: {'application/json': ['.json']},
+                    }],
+                };
+                try {
+                    const handle = await window.showSaveFilePicker(options);
+                    const writable = await handle.createWritable();
+                    await writable.write(JSON.stringify(taskManager, null, 2)); // Pretty print with 2 spaces
+                    await writable.close();
+                    isDataModified = false;
+                    alert('Tasks saved successfully.');
+                } catch (err) {
+                    console.error(err);
+                    alert('Failed to save tasks.');
+                }
+            } else {
+                alert('File System Access API is not supported in this browser.');
+            }
+        }
+
+        /**
+         * Loads tasks from a JSON file using the File System Access API.
+         */
+        async function loadTasks() {
+            if (window.showOpenFilePicker) {
+                const options = {
+                    multiple: false,
+                    types: [{
+                        description: 'JSON Files',
+                        accept: {'application/json': ['.json']},
+                    }],
+                };
+                try {
+                    const [handle] = await window.showOpenFilePicker(options);
+                    const file = await handle.getFile();
+                    const contents = await file.text();
+                    const loadedData = JSON.parse(contents);
+
+                    // Reconstruct TaskManager
+                    taskManager = new TaskManager();
+
+                    // Check if the loaded data is in the new format (has 'lists')
+                    if (Array.isArray(loadedData.lists)) {
+                        // Load multiple lists
+                        loadedData.lists.forEach(loadedList => {
+                            let list = reconstructList(loadedList);
+                            taskManager.lists.push(list);
+                        });
+                    } else if (Array.isArray(loadedData.categories)) {
+                        // Backward compatibility: Load single list
+                        let list = new ToDoList('Default List');
+                        loadedData.categories.forEach(loadedCategory => {
+                            let category = reconstructCategory(loadedCategory);
+                            list.categories.push(category);
+                        });
+                        taskManager.lists.push(list);
+                    } else {
+                        alert('The loaded file does not have lists or categories in an expected format.');
+                        return;
+                    }
+
+                    taskManager.currentListIndex = 0;
+                    isDataModified = false;
+
+                    // Render the tabs and tasks
+                    renderTabBar();
+                    renderTasks();
+                    alert('Tasks loaded successfully.');
+                    console.log('Loaded tasks:', taskManager);
+                } catch (err) {
+                    console.error(err);
+                    alert('Failed to load tasks.');
+                }
+            } else {
+                alert('File System Access API is not supported in this browser.');
+            }
+        }
+
+        /**
+         * Reconstructs a to-do list from loaded data.
+         * @param {Object} data - The loaded list data.
+         * @returns {ToDoList} - The reconstructed list.
+         */
+        function reconstructList(data) {
+            let list = new ToDoList(data.name || 'Unnamed List');
+
+            if (Array.isArray(data.categories)) {
+                data.categories.forEach(loadedCategory => {
+                    let category = reconstructCategory(loadedCategory);
+                    list.categories.push(category);
+                });
+            }
+
+            return list;
+        }
+
+        /**
+         * Reconstructs a category from loaded data.
+         * @param {Object} data - The loaded category data.
+         * @returns {Category} - The reconstructed category.
+         */
+        function reconstructCategory(data) {
+            let category = new Category(
+                data.name,
+                data.autoDelete,
+                data.resetDate,
+                data.resetIntervalDays,
+                data.monthlyReset
+            );
+            category.lastResetDate = data.lastResetDate || null;
+
+            // Reconstruct tasks
+            if (data.tasks && Array.isArray(data.tasks)) {
+                data.tasks.forEach(taskData => {
+                    let task = new Task(
+                        taskData.name,
+                        taskData.inProcessEnabled,
+                        taskData.dueDate
+                    );
+                    task.completed = taskData.completed;
+                    task.inProcess = taskData.inProcess;
+                    category.addTask(task);
+                });
+            }
+
+            // Reconstruct subcategories
+            if (Array.isArray(data.subcategories)) {
+                data.subcategories.forEach(subcategoryData => {
+                    let subcategory = reconstructCategory(subcategoryData);
+                    category.subcategories.push(subcategory);
+                });
+            }
+
+            return category;
+        }
+
+        /**
+         * Warns the user about unsaved changes before leaving the page.
+         */
+        window.onbeforeunload = function(event) {
+            if (isDataModified) {
+                return 'You have unsaved changes. Do you really want to leave?';
+            }
+        };
+
+        // Initialize the application
+        window.onload = function() {
+            attachEventListeners();
+            displayCurrentDate();
+            // Initialize with a default list if none exist
+            if (taskManager.lists.length === 0) {
+                taskManager.addList('Default List');
+            }
+            renderTabBar();
+            renderTasks(); // Render categories at startup
+        };
+    </script>
+</body>
+</html>
