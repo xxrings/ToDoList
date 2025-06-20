@@ -24,6 +24,30 @@ class Category {
   removeSubcategory(index) { this.subcategories.splice(index, 1); }
 }
 
+/**
+ * Given a plain‐object snapshot of a category (from JSON),
+ * rebuild a real Category instance (with its methods) and all children.
+ */
+function reconstructCategory(data) {
+  // 1) Run the real constructor so we get .addTask(), .removeTask(), etc.
+  const cat = new Category(data.name, data.autoDelete);
+
+  // 2) Rehydrate its tasks
+  data.tasks.forEach(td => {
+    const t = new Task(td.name, td.dueDate);
+    t.completed   = td.completed;
+    t.inProcess   = td.inProcess;
+    cat.tasks.push(t);
+  });
+
+  // 3) Recursively rehydrate subcategories
+  data.subcategories.forEach(sd => {
+    cat.subcategories.push(reconstructCategory(sd));
+  });
+
+  return cat;
+}
+
 class TaskManager {
   constructor() {
     this.lists = [];
@@ -81,12 +105,29 @@ function saveTasks() {
 }
 
 function loadTasks() {
-  const data = localStorage.getItem('todoData');
-  if (data) {
-    Object.assign(tm, JSON.parse(data));
-    renderAll();
-    alert('Lists loaded!');
-  }
+  const raw = localStorage.getItem('todoData');
+  if (!raw) return;
+
+  const parsed = JSON.parse(raw);
+
+  // — Rebuild the TaskManager from scratch —
+  tm.lists            = [];
+  tm.currentListIndex = parsed.currentListIndex || 0;
+
+  parsed.lists.forEach(ld => {
+    // Each list in your JSON is { name, categories: [...] }
+    const listObj = { name: ld.name, categories: [] };
+
+    // Rehydrate every Category in that list
+    ld.categories.forEach(cd => {
+      listObj.categories.push(reconstructCategory(cd));
+    });
+
+    tm.lists.push(listObj);
+  });
+
+  renderAll();
+  alert('Lists loaded!');
 }
 
 function createTaskItem(task, container, idx) {
