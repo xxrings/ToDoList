@@ -1,5 +1,6 @@
 // app.js (ES-module)
 
+// ── Task & Category Classes ─────────────────────────────────────────────────
 class Task {
   constructor(name, dueDate = null) {
     this.name = name;
@@ -24,30 +25,7 @@ class Category {
   removeSubcategory(index) { this.subcategories.splice(index, 1); }
 }
 
-/**
- * Given a plain‐object snapshot of a category (from JSON),
- * rebuild a real Category instance (with its methods) and all children.
- */
-function reconstructCategory(data) {
-  // 1) Run the real constructor so we get .addTask(), .removeTask(), etc.
-  const cat = new Category(data.name, data.autoDelete);
-
-  // 2) Rehydrate its tasks
-  data.tasks.forEach(td => {
-    const t = new Task(td.name, td.dueDate);
-    t.completed   = td.completed;
-    t.inProcess   = td.inProcess;
-    cat.tasks.push(t);
-  });
-
-  // 3) Recursively rehydrate subcategories
-  data.subcategories.forEach(sd => {
-    cat.subcategories.push(reconstructCategory(sd));
-  });
-
-  return cat;
-}
-
+// ── TaskManager & Utility Functions ────────────────────────────────────────
 class TaskManager {
   constructor() {
     this.lists = [];
@@ -99,37 +77,7 @@ function ensureUrgentCategory() {
   });
 }
 
-function saveTasks() {
-  localStorage.setItem('todoData', JSON.stringify(tm));
-  alert('Lists saved!');
-}
-
-function loadTasks() {
-  const raw = localStorage.getItem('todoData');
-  if (!raw) return;
-
-  const parsed = JSON.parse(raw);
-
-  // — Rebuild the TaskManager from scratch —
-  tm.lists            = [];
-  tm.currentListIndex = parsed.currentListIndex || 0;
-
-  parsed.lists.forEach(ld => {
-    // Each list in your JSON is { name, categories: [...] }
-    const listObj = { name: ld.name, categories: [] };
-
-    // Rehydrate every Category in that list
-    ld.categories.forEach(cd => {
-      listObj.categories.push(reconstructCategory(cd));
-    });
-
-    tm.lists.push(listObj);
-  });
-
-  renderAll();
-  alert('Lists loaded!');
-}
-
+// ── Rendering Functions ─────────────────────────────────────────────────────
 function createTaskItem(task, container, idx) {
   const li = document.createElement('li');
   li.classList.add('task-item');
@@ -223,7 +171,7 @@ function renderCategories() {
     // Body
     const bd = document.createElement('div'); bd.classList.add('card-body');
 
-    // Subcategories (two-per-row grid)
+    // Subcategories
     if (cat.name !== 'URGENT' && cat.subcategories.length) {
       const subCont = document.createElement('div'); subCont.classList.add('subcategories-container');
       cat.subcategories.forEach((sub, sidx) => {
@@ -303,22 +251,64 @@ function renderAll() {
   renderCategories();
 }
 
+// ── NEW: Auth & Storage Integration ─────────────────────────────────────────
+import { monitorAuthState } from './auth.js';
+import { useLocal, useRemote, loadData, saveData } from './storage.js';
+
 window.addEventListener('DOMContentLoaded', () => {
+  // 1) Show date
   displayCurrentDate();
-  document.getElementById('add-list-button').onclick = () => {
-    const n = prompt('List name?'); if (n) { tm.addList(n); renderAll(); }
+
+  // 2) React to login/logout
+  monitorAuthState(async user => {
+    if (user) {
+      useRemote(user.uid);
+    } else {
+      useLocal();
+    }
+
+    // Load & render (with fallback if empty)
+    const data = await loadData();
+    tm.lists = data.lists || [];
+    if (tm.lists.length === 0) {
+      tm.addList('Default List');
+      tm.getCurrentList().categories.push(new Category('General', false));
+    }
+    renderAll();
+  });
+
+  // 3) Hook up your buttons to save/load via storage.js
+  document.getElementById('add-list-button').onclick = async () => {
+    const n = prompt('List name?');
+    if (n) {
+      tm.addList(n);
+      renderAll();
+      await saveData({ lists: tm.lists });
+    }
   };
-  document.getElementById('save-tasks-top').onclick = saveTasks;
-  document.getElementById('load-tasks-top').onclick = loadTasks;
-  document.getElementById('add-category').onclick = () => {
-    const n = prompt('Category name?'); if (!n) return;
+
+  document.getElementById('save-tasks-top').onclick = async () => {
+    await saveData({ lists: tm.lists });
+    alert('Lists saved!');
+  };
+
+  document.getElementById('load-tasks-top').onclick = async () => {
+    const data = await loadData();
+    tm.lists = data.lists || [];
+    if (tm.lists.length === 0) {
+      tm.addList('Default List');
+      tm.getCurrentList().categories.push(new Category('General', false));
+    }
+    renderAll();
+    alert('Lists loaded!');
+  };
+
+  document.getElementById('add-category').onclick = async () => {
+    const n = prompt('Category name?');
+    if (!n) return;
     const ad = confirm('Auto-delete? OK=Yes');
     tm.getCurrentList().categories.push(new Category(n, ad));
     renderAll();
+    await saveData({ lists: tm.lists });
   };
-
-  // Default initialization
-  tm.addList('Default List');
-  tm.getCurrentList().categories.push(new Category('General', false));
-  renderAll();
 });

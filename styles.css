@@ -109,25 +109,59 @@ button {
   cursor: pointer;
 }
 
-/* Tab-style buttons, just like your old version */
-#tab-bar {
+#auth-bar {
   display: flex;
-  border-bottom: 1px solid #ccc;
-  margin-bottom: 20px;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
 }
 
+#auth-bar input,
+#auth-bar button {
+  font-size: 14px;
+  padding: 5px 8px;
+}
+
+/* ── Tab-bar container ────────────────────────────────────────────────── */
+#tab-bar {
+  display: inline-flex;                   /* shrink to contents */
+  border: 1px solid #ddd;                /* outer frame */
+  border-bottom: none;                   /* let active tab “sit” on content */
+  border-radius: 4px 4px 0 0;
+  background: #f7f7f7;                   /* light gray behind inactive tabs */
+  margin: 0 auto 1rem;                   /* center horizontally, space below */
+  padding: 0 0.25rem;
+}
+
+/* ── All tabs ───────────────────────────────────────────────────────── */
 #tab-bar button {
-  background-color: #f1f1f1;
-  border: 1px solid #ccc;
-  border-bottom: none;      /* so the “active” looks connected to the content below */
-  padding: 10px 20px;
-  margin-right: 5px;
-  cursor: pointer;
-  font-size: 1em;
+  all: unset;                            /* strip browser defaults */
+  padding: 0.5rem 1rem;                  
+  margin: 0 0.25rem;                     
+  font-size: 1rem;                       
+  color: #555;                           
+  cursor: pointer;                       
+  position: relative;
+  top: 0;                                
+  transition: background 0.2s, color 0.2s, top 0.2s;
 }
 
-#tab-bar button.active-tab {
-  background-color: #fff;
-  font-weight: bold;
-  /* optionally: border-bottom: 1px solid #fff; */
+/* ── Inactive tab hover ──────────────────────────────────────────────── */
+#tab-bar button:not(.active-tab):hover {
+  background: #e3e3e3;                   /* slightly darker on hover */
+  border-radius: 4px 4px 0 0;
 }
+
+/* ── Active tab ─────────────────────────────────────────────────────── */
+#tab-bar button.active-tab {
+  background: #fff;                      /* match content background */
+  border: 1px solid #ddd;                
+  border-bottom: 1px solid #fff;         /* “meld” into content area */
+  border-radius: 4px 4px 0 0;
+  color: #000;                           
+  font-weight: bold;                     
+  top: 1px;                              /* overlap container border */
+  z-index: 1;                            
+}
+
