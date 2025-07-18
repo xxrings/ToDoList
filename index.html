@@ -3,14 +3,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>To-Do List with Multiple Lists</title>
+  <title>ToDojo</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" type="image/png" href="favicon.png">
 
   
 </head>
 <body>
-  <h1>To-Do List with Multiple Lists</h1>
+  <h1>ToDojo</h1>
   <p id="current-date"></p>
 
 <!-- ✅ Authentication UI -->
@@ -21,6 +21,12 @@
   <button id="signup-btn">Sign Up</button>
   <span id="user-status">Not logged in</span>
   <button id="logout-btn" style="display: none;">Log Out</button>
+  <div id="settings-container" style="display: inline-block; position: relative;">
+    <button id="settings-btn" title="Settings" style="font-size: 18px; padding: 4px 8px;">⚙️</button>
+    <div id="settings-menu" style="display: none; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); min-width: 180px; z-index: 100;">
+      <button id="remove-duplicates-menu" style="width: 100%; text-align: left; padding: 8px 16px; border: none; background: none; cursor: pointer;">Remove Duplicate Lists</button>
+    </div>
+  </div>
 </div>
 
   <div id="tab-bar"></div>

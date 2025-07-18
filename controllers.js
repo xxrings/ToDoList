@@ -280,15 +280,6 @@ export function initApp() {
         tm.addList(result.name);
         renderAll();
       };
-      const btn = document.createElement('button');
-      btn.textContent = 'Remove Duplicate Lists';
-      btn.style.background = '#ffcc00';
-      btn.style.color = '#333';
-      btn.style.fontWeight = 'bold';
-      btn.style.border = '2px solid #cc9900';
-      btn.style.marginLeft = '10px';
-      btn.onclick = removeDuplicateLists;
-      addListBtn.parentNode.insertBefore(btn, addListBtn.nextSibling);
     }
     const addCategoryBtn = document.getElementById('add-category');
     if (addCategoryBtn) {
@@ -306,6 +297,27 @@ export function initApp() {
         list.categories.push(new Category(result.name, !!result.autoDelete));
         saveData({ lists: tm.lists });
         renderAll();
+      };
+    }
+    // Settings menu logic
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsMenu = document.getElementById('settings-menu');
+    const removeDuplicatesMenu = document.getElementById('remove-duplicates-menu');
+    if (settingsBtn && settingsMenu) {
+      settingsBtn.onclick = (e) => {
+        e.stopPropagation();
+        settingsMenu.style.display = settingsMenu.style.display === 'block' ? 'none' : 'block';
+      };
+      document.addEventListener('click', (e) => {
+        if (settingsMenu.style.display === 'block' && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+          settingsMenu.style.display = 'none';
+        }
+      });
+    }
+    if (removeDuplicatesMenu) {
+      removeDuplicatesMenu.onclick = () => {
+        settingsMenu.style.display = 'none';
+        removeDuplicateLists();
       };
     }
   }, { once: true });
