@@ -42,4 +42,20 @@ export class TaskManager {
   }
 }
 
+export function rehydrateLists(lists) {
+  return lists.map(list => ({
+    ...list,
+    categories: (list.categories || []).map(cat => {
+      const category = Object.assign(new Category(cat.name, cat.autoDelete), cat);
+      category.tasks = (cat.tasks || []).map(t => Object.assign(new Task(t.name, t.dueDate), t));
+      category.subcategories = (cat.subcategories || []).map(sub => {
+        const subcat = Object.assign(new Category(sub.name, sub.autoDelete), sub);
+        subcat.tasks = (sub.tasks || []).map(t => Object.assign(new Task(t.name, t.dueDate), t));
+        return subcat;
+      });
+      return category;
+    })
+  }));
+}
+
 export const tm = new TaskManager(); 

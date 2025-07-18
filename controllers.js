@@ -1,6 +1,6 @@
 // controllers.js
 
-import { tm, Category } from './models.js';
+import { tm, Category, rehydrateLists } from './models.js';
 import { displayCurrentDate, renderTabBar, renderCategories, showModalDialog } from './views.js';
 import { useLocal, useRemote, loadData, saveData } from './storage.js';
 import { registerUser, loginUser, logoutUser, monitorAuthState } from './auth.js';
@@ -234,7 +234,7 @@ export function initApp() {
         unsubscribeRealtime = onSnapshot(
           collection(db, 'users', user.uid, 'lists'),
           snap => {
-            tm.lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            tm.lists = rehydrateLists(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             tm.currentListIndex = 0;
             renderAll();
             updateSyncStatus('success', 'Synced (live)');
@@ -246,7 +246,7 @@ export function initApp() {
         );
         // Initial load (in case no real-time data yet)
         loadData().then(data => {
-          tm.lists = Array.isArray(data.lists) ? data.lists : [];
+          tm.lists = rehydrateLists(Array.isArray(data.lists) ? data.lists : []);
           tm.currentListIndex = 0;
           updateSyncStatus('success', 'Synced');
           renderAll();
