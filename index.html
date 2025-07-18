@@ -27,23 +27,35 @@
 
   <div id="top-controls">
     <button id="add-list-button">Add New List</button>
-    <button id="save-tasks-top">Save To-Do Lists</button>
-    <button id="load-tasks-top">Load To-Do Lists</button>
     <button id="add-category">Add Category</button>
+    <div id="sync-controls">
+      <span id="sync-status" class="sync-status offline">Not logged in</span>
+      <button id="manual-sync-btn" onclick="manualSync()" style="display: none;">Sync Now</button>
+    </div>
   </div>
 
   <div id="categories-container" class="categories-container"></div>
+
+  <!-- Modal dialog for all user input (hidden by default) -->
+  <div id="modal-overlay" style="display:none;">
+    <div id="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <form id="modal-form">
+        <h2 id="modal-title"></h2>
+        <div id="modal-content"></div>
+        <div id="modal-error" style="color:#c00; margin:8px 0; display:none;"></div>
+        <div style="text-align:right; margin-top:12px;">
+          <button type="button" id="modal-cancel">Cancel</button>
+          <button type="submit" id="modal-ok">OK</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script type="module" src="./firebase.js"></script>
 
   <script type="module" src="./auth.js"></script>
 
   <script type="module" src="app.js"></script>
-
-  <script type="module">
-  import * as authModule from './auth.js';
-  window.authModule = authModule;
-</script>
 
 </body>
 </html>

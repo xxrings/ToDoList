@@ -22,11 +22,92 @@ h1, #current-date {
   margin-bottom: 20px;
 }
 
+.tab-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.delete-tab-btn {
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+}
+
+.delete-tab-btn:hover {
+  background: #cc0000;
+}
+
 #top-controls {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+#sync-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 20px;
+}
+
+.sync-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.sync-status.offline {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.sync-status.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.sync-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.sync-status.syncing {
+  background-color: #fff3cd;
+  color: #856404;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+#manual-sync-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#manual-sync-btn:hover {
+  background-color: #0056b3;
 }
 
 .categories-container {
@@ -163,5 +244,107 @@ button {
   font-weight: bold;                     
   top: 1px;                              /* overlap container border */
   z-index: 1;                            
+}
+
+/* Editable elements */
+h3[title*="edit"], h4[title*="edit"], span[title*="edit"] {
+  transition: background-color 0.2s ease;
+}
+
+h3[title*="edit"]:hover, h4[title*="edit"]:hover, span[title*="edit"]:hover {
+  background-color: #f0f8ff;
+  border-radius: 3px;
+  padding: 2px 4px;
+}
+
+/* Active tab editing */
+.active-tab[title*="edit"]:hover {
+  background-color: #e6f3ff;
+}
+
+/* Task name editing */
+.task-item span[title*="edit"]:hover {
+  background-color: #f0f8ff;
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+
+/* ── Modal Dialog (Bicycle card inspired) ─────────────────────────────── */
+#modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#modal-dialog {
+  background: #fff;
+  border: 2px solid #2d2d2d;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  min-width: 320px;
+  max-width: 90vw;
+  padding: 24px 20px 16px 20px;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  position: relative;
+}
+#modal-title {
+  color: #1a1a1a;
+  font-size: 1.3rem;
+  margin-bottom: 12px;
+  text-align: center;
+  font-family: 'Georgia', serif;
+  letter-spacing: 1px;
+}
+#modal-content label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+  color: #003366;
+}
+#modal-content input, #modal-content select {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  border: 1.5px solid #2d2d2d;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #fff;
+}
+#modal-error {
+  color: #c00;
+  font-size: 0.98rem;
+  text-align: center;
+}
+#modal-ok {
+  background: #e60026;
+  color: #fff;
+  border: 1.5px solid #2d2d2d;
+  border-radius: 6px;
+  padding: 6px 18px;
+  font-weight: bold;
+  margin-left: 8px;
+  font-family: 'Georgia', serif;
+  letter-spacing: 1px;
+  transition: background 0.2s;
+}
+#modal-ok:hover, #modal-ok:focus {
+  background: #b3001b;
+}
+#modal-cancel {
+  background: #fff;
+  color: #003366;
+  border: 1.5px solid #2d2d2d;
+  border-radius: 6px;
+  padding: 6px 18px;
+  font-weight: bold;
+  font-family: 'Georgia', serif;
+  letter-spacing: 1px;
+  transition: background 0.2s;
+}
+#modal-cancel:hover, #modal-cancel:focus {
+  background: #e6e6e6;
 }
 
