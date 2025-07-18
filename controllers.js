@@ -4,6 +4,17 @@ import { tm, Category } from './models.js';
 import { displayCurrentDate, renderTabBar, renderCategories, showModalDialog } from './views.js';
 import { useLocal, useRemote, loadData, saveData } from './storage.js';
 import { registerUser, loginUser, logoutUser, monitorAuthState } from './auth.js';
+import { db } from './firebase.js';
+import { collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+
+let unsubscribeRealtime = null;
+
+function updateSyncStatus(state, text) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.className = `sync-status ${state}`;
+  el.textContent = text;
+}
 
 // Utility: ensure URGENT category exists and move urgent tasks
 function ensureUrgentCategory() {
@@ -216,30 +227,41 @@ export function initApp() {
         loginBtn.style.display    = 'none';
         signupBtn.style.display   = 'none';
         setAppUIEnabled(true);
-        // Only load app data and render if not already loaded
-        if (!tm.lists.length) {
-          displayCurrentDate();
-          loadData().then(data => {
-            if (data && Array.isArray(data.lists)) {
-              tm.lists = data.lists;
-              tm.currentListIndex = 0;
-            }
+        useRemote(user.uid);
+        updateSyncStatus('syncing', 'Loading…');
+        // Set up real-time listener
+        if (unsubscribeRealtime) unsubscribeRealtime();
+        unsubscribeRealtime = onSnapshot(
+          collection(db, 'users', user.uid, 'lists'),
+          snap => {
+            tm.lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            tm.currentListIndex = 0;
             renderAll();
-          }).catch(e => {
-            alert('Failed to load data: ' + e.message);
-            renderAll();
-          });
-        } else {
+            updateSyncStatus('success', 'Synced (live)');
+          },
+          err => {
+            console.error('Realtime listener error', err);
+            updateSyncStatus('error', 'Sync error');
+          }
+        );
+        // Initial load (in case no real-time data yet)
+        loadData().then(data => {
+          tm.lists = Array.isArray(data.lists) ? data.lists : [];
+          tm.currentListIndex = 0;
+          updateSyncStatus('success', 'Synced');
           renderAll();
-        }
+        }).catch(e => {
+          updateSyncStatus('error', 'Load failed');
+          renderAll();
+        });
       } else {
-        userStatus.textContent      = 'Not logged in';
-        logoutBtn.style.display     = 'none';
-        emailInput.style.display    = 'inline-block';
-        passwordInput.style.display = 'inline-block';
-        loginBtn.style.display      = 'inline-block';
-        signupBtn.style.display     = 'inline-block';
-        setAppUIEnabled(false);
+        if (unsubscribeRealtime) {
+          unsubscribeRealtime();
+          unsubscribeRealtime = null;
+        }
+        useLocal();
+        updateSyncStatus('offline', 'Not logged in');
+        renderAll();
       }
     });
 
