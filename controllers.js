@@ -234,8 +234,16 @@ export function initApp() {
         unsubscribeRealtime = onSnapshot(
           collection(db, 'users', user.uid, 'lists'),
           snap => {
+            // Preserve current list selection by ID
+            const prevList = tm.lists[tm.currentListIndex];
+            const prevId = prevList ? prevList.id : null;
             tm.lists = rehydrateLists(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-            tm.currentListIndex = 0;
+            let idx = 0;
+            if (prevId) {
+              idx = tm.lists.findIndex(l => l.id === prevId);
+              if (idx === -1) idx = 0;
+            }
+            tm.currentListIndex = idx;
             renderAll();
             updateSyncStatus('success', 'Synced (live)');
           },
@@ -246,8 +254,15 @@ export function initApp() {
         );
         // Initial load (in case no real-time data yet)
         loadData().then(data => {
+          const prevList = tm.lists[tm.currentListIndex];
+          const prevId = prevList ? prevList.id : null;
           tm.lists = rehydrateLists(Array.isArray(data.lists) ? data.lists : []);
-          tm.currentListIndex = 0;
+          let idx = 0;
+          if (prevId) {
+            idx = tm.lists.findIndex(l => l.id === prevId);
+            if (idx === -1) idx = 0;
+          }
+          tm.currentListIndex = idx;
           updateSyncStatus('success', 'Synced');
           renderAll();
         }).catch(e => {
